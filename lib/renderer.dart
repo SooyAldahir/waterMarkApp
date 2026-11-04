@@ -6,12 +6,15 @@ import 'package:flutter/painting.dart';
 
 import 'photo_info.dart';
 
-enum MarkStyle { bottom, frame, blur }
+/// bottom: franja inferior. frame: marco. blur: foto sobre su fondo
+/// desenfocado. card: marco centrado sobre el fondo desenfocado.
+enum MarkStyle { bottom, frame, blur, card }
 
 enum MarkColor { white, black }
 
-/// "Shot on Samsung Galaxy S25 Ultra" o "Galaxy S25 Ultra | SAMSUNG".
-enum MarkText { shotOn, modelBrand }
+/// "Shot on Samsung Galaxy S25 Ultra", "Galaxy S25 Ultra | SAMSUNG" o
+/// "SAMSUNG | Galaxy S25 Ultra".
+enum MarkText { shotOn, modelBrand, brandModel }
 
 class _Palette {
   final Color bg;
@@ -90,41 +93,17 @@ Future<ui.Image> renderMark({
 
     case MarkStyle.blur:
       out = Size(w, h);
-      // Fondo: la misma foto, ampliada y desenfocada.
-      final sigma = short * 0.06;
-      canvas.save();
-      canvas.clipRect(Offset.zero & out);
-      canvas.saveLayer(
-        Offset.zero & out,
-        Paint()
-          ..imageFilter = ui.ImageFilter.blur(
-            sigmaX: sigma,
-            sigmaY: sigma,
-            tileMode: TileMode.clamp,
-          ),
-      );
-      canvas.drawImageRect(photo, src, src.inflate(sigma * 2), hq);
-      canvas.restore();
-      canvas.drawRect(
-        Offset.zero & out,
-        Paint()..color = p.bg.withValues(alpha: 0.25),
-      );
-      canvas.restore();
+      _blurBackground(canvas, photo, out, p, short);
 
       // Foto centrada con texto debajo.
-      final pad = short * 0.09;
-      final textH = short * 0.14;
+      final pad = short * 0.05;
+      final textH = short * 0.17;
       final scale = math.min((w - pad * 2) / w, (h - pad * 2 - textH) / h);
       final pw = w * scale, ph = h * scale;
       final top = (h - ph - textH) / 2;
       final dst = Rect.fromLTWH((w - pw) / 2, top, pw, ph);
       final rr = RRect.fromRectAndRadius(dst, Radius.circular(short * 0.015));
-      canvas.drawRRect(
-        rr.shift(Offset(0, short * 0.008)),
-        Paint()
-          ..color = const Color(0x66000000)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, short * 0.02),
-      );
+      _shadow(canvas, rr, short);
       canvas.save();
       canvas.clipRRect(rr);
       canvas.drawImageRect(photo, src, dst, hq);
@@ -137,10 +116,93 @@ Future<ui.Image> renderMark({
         text,
         short,
       );
+
+    case MarkStyle.card:
+      out = Size(w, h);
+      _blurBackground(canvas, photo, out, p, short);
+
+      // Tarjeta: borde fino y zona inferior para el texto, a escala.
+      final b = short * 0.03;
+      final barH = short * 0.13;
+      final cw = w + b * 2, ch = h + b + barH;
+      final pad = short * 0.08;
+      final s = math.min((w - pad * 2) / cw, (h - pad * 2) / ch);
+      final card = Rect.fromCenter(
+        center: Offset(w / 2, h / 2),
+        width: cw * s,
+        height: ch * s,
+      );
+      final rr = RRect.fromRectAndRadius(card, Radius.circular(short * 0.004));
+      _shadow(canvas, rr, short);
+      canvas.drawRRect(rr, Paint()..color = p.bg);
+      final dst = Rect.fromLTWH(
+        card.left + b * s,
+        card.top + b * s,
+        w * s,
+        h * s,
+      );
+      canvas.drawImageRect(photo, src, dst, hq);
+      _drawCentered(
+        canvas,
+        Rect.fromLTRB(card.left, dst.bottom, card.right, card.bottom),
+        info,
+        p,
+        text,
+        short * s * 0.7,
+      );
   }
 
   final picture = recorder.endRecording();
   return picture.toImage(out.width.round(), out.height.round());
+}
+
+/// La misma foto, ampliada y desenfocada, cubriendo todo el lienzo.
+void _blurBackground(
+  Canvas canvas,
+  ui.Image photo,
+  Size out,
+  _Palette p,
+  double short,
+) {
+  final src = Rect.fromLTWH(
+    0,
+    0,
+    photo.width.toDouble(),
+    photo.height.toDouble(),
+  );
+  final sigma = short * 0.06;
+  canvas.save();
+  canvas.clipRect(Offset.zero & out);
+  canvas.saveLayer(
+    Offset.zero & out,
+    Paint()
+      ..imageFilter = ui.ImageFilter.blur(
+        sigmaX: sigma,
+        sigmaY: sigma,
+        tileMode: TileMode.clamp,
+      ),
+  );
+  canvas.drawImageRect(
+    photo,
+    src,
+    (Offset.zero & out).inflate(sigma * 2),
+    Paint()..filterQuality = FilterQuality.medium,
+  );
+  canvas.restore();
+  canvas.drawRect(
+    Offset.zero & out,
+    Paint()..color = p.bg.withValues(alpha: 0.25),
+  );
+  canvas.restore();
+}
+
+void _shadow(Canvas canvas, RRect rr, double short) {
+  canvas.drawRRect(
+    rr.shift(Offset(0, short * 0.008)),
+    Paint()
+      ..color = const Color(0x66000000)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, short * 0.02),
+  );
 }
 
 Future<Uint8List> encodePng(ui.Image image) async {
@@ -183,22 +245,22 @@ void _drawBar(
   );
 }
 
-/// Texto centrado bajo la foto (estilo desenfoque).
+/// Texto centrado bajo la foto (desenfoque y tarjeta). [unit] escala el texto.
 void _drawCentered(
   Canvas canvas,
   Rect r,
   PhotoInfo info,
   _Palette p,
   MarkText text,
-  double short,
+  double unit,
 ) {
   final maxW = r.width * 0.9;
   final lines = [
-    _title(info, text, short * 0.03, p, maxW),
+    _title(info, text, unit * 0.03, p, maxW),
     if (info.settings.isNotEmpty)
-      _text(info.settings, short * 0.021, p.primary, FontWeight.w400, maxW),
+      _text(info.settings, unit * 0.021, p.primary, FontWeight.w400, maxW),
   ];
-  final gap = short * 0.008;
+  final gap = unit * 0.008;
   final total =
       lines.fold<double>(0, (s, t) => s + t.height) + gap * (lines.length - 1);
   var y = r.top + (r.height - total) / 2;
@@ -232,8 +294,9 @@ TextPainter _title(
         TextSpan(text: info.fullName, style: style(FontWeight.w600)),
       ];
     case MarkText.modelBrand:
-      final mark = info.brandMarkText;
-      final model = info.modelName;
+    case MarkText.brandModel:
+      final markText = info.brandMarkText;
+      final modelText = info.modelName;
       final brandStyle = TextStyle(
         fontSize: size,
         color: p.primary,
@@ -245,15 +308,26 @@ TextPainter _title(
         letterSpacing: info.brandFontFamily == null ? size * 0.16 : 0,
         height: 1.15,
       );
-      spans = [
-        if (model.isNotEmpty && model != info.brand)
-          TextSpan(text: model, style: style(FontWeight.w500)),
-        if (model.isNotEmpty && model != info.brand && mark.isNotEmpty)
-          TextSpan(text: '  |  ', style: style(FontWeight.w200, p.secondary)),
-        if (mark.isNotEmpty) TextSpan(text: mark, style: brandStyle),
-        if (mark.isEmpty && model.isEmpty)
-          TextSpan(text: info.fullName, style: style(FontWeight.w500)),
-      ];
+      final mark = markText.isEmpty
+          ? null
+          : TextSpan(text: markText, style: brandStyle);
+      final model = modelText.isEmpty || modelText == info.brand
+          ? null
+          : TextSpan(text: modelText, style: style(FontWeight.w500));
+      final parts = text == MarkText.modelBrand ? [model, mark] : [mark, model];
+      final present = parts.whereType<TextSpan>().toList();
+      spans = present.isEmpty
+          ? [TextSpan(text: info.fullName, style: style(FontWeight.w500))]
+          : [
+              present.first,
+              if (present.length > 1) ...[
+                TextSpan(
+                  text: '  |  ',
+                  style: style(FontWeight.w200, p.secondary),
+                ),
+                present.last,
+              ],
+            ];
   }
   return TextPainter(
     text: TextSpan(children: spans),

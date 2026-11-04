@@ -237,75 +237,74 @@ class _EditorPageState extends State<EditorPage> {
     _refresh();
   }
 
+  static const _styleLabels = {
+    MarkStyle.bottom: 'Inferior',
+    MarkStyle.frame: 'Marco',
+    MarkStyle.blur: 'Desenfoque',
+    MarkStyle.card: 'Tarjeta',
+  };
+
+  static const _textLabels = {
+    MarkText.shotOn: 'Shot on',
+    MarkText.modelBrand: 'Modelo | Marca',
+    MarkText.brandModel: 'Marca | Modelo',
+  };
+
+  /// Fila con opciones que se deslizan y un control fijo a la derecha.
+  Widget _scrollRow(List<Widget> options, Widget trailing) => SizedBox(
+    height: 40,
+    child: Row(
+      children: [
+        Expanded(
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.only(left: 20),
+            children: options,
+          ),
+        ),
+        const SizedBox(width: 8),
+        trailing,
+        const SizedBox(width: 20),
+      ],
+    ),
+  );
+
   List<Widget> _markPanel() => [
-    Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
-      child: Row(
-        children: [
-          _Option(
-            'Shot on',
-            _text == MarkText.shotOn,
-            () => _set(text: MarkText.shotOn),
-          ),
-          _Option(
-            'Modelo | Marca',
-            _text == MarkText.modelBrand,
-            () => _set(text: MarkText.modelBrand),
-          ),
-          const Spacer(),
-          Flexible(
-            child: GestureDetector(
-              onTap: _busy ? null : _editModel,
-              behavior: HitTestBehavior.opaque,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        _info.modelName,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          fontSize: 13,
-                          color: Colors.white38,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    const Icon(
-                      Icons.edit_outlined,
-                      size: 14,
-                      color: Colors.white38,
-                    ),
-                  ],
+    _scrollRow(
+      [
+        for (final e in _textLabels.entries)
+          _Option(e.value, _text == e.key, () => _set(text: e.key)),
+      ],
+      GestureDetector(
+        onTap: _busy ? null : _editModel,
+        behavior: HitTestBehavior.opaque,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 130),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  _info.modelName,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13, color: Colors.white38),
                 ),
               ),
-            ),
+              const SizedBox(width: 6),
+              const Icon(Icons.edit_outlined, size: 14, color: Colors.white38),
+            ],
           ),
-        ],
+        ),
       ),
     ),
-    Padding(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 4),
-      child: Row(
+    _scrollRow(
+      [
+        for (final e in _styleLabels.entries)
+          _Option(e.value, _style == e.key, () => _set(style: e.key)),
+      ],
+      Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          _Option(
-            'Inferior',
-            _style == MarkStyle.bottom,
-            () => _set(style: MarkStyle.bottom),
-          ),
-          _Option(
-            'Marco',
-            _style == MarkStyle.frame,
-            () => _set(style: MarkStyle.frame),
-          ),
-          _Option(
-            'Desenfoque',
-            _style == MarkStyle.blur,
-            () => _set(style: MarkStyle.blur),
-          ),
-          const Spacer(),
           _Swatch(
             Colors.white,
             _color == MarkColor.white,

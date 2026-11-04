@@ -9,13 +9,15 @@ Todo se procesa en el teléfono: no hay backend, funciona sin internet y las fot
 **Marca de agua**
 
 - Lee los datos EXIF de la foto: marca, modelo, focal (equivalente a 35 mm), apertura, velocidad de obturación e ISO.
-- Dos formatos de texto:
+- Tres formatos de texto:
   - `Shot on Samsung Galaxy S25 Ultra`. La marca solo se antepone cuando hace falta: un iPhone queda como `Shot on iPhone 15 Pro`.
   - `Galaxy S25 Ultra | SAMSUNG`, con la marca escrita como en su logotipo.
-- Tres estilos, cada uno en blanco o negro:
+  - `SAMSUNG | Galaxy S25 Ultra`, la marca primero.
+- Cuatro estilos, cada uno en blanco o negro y con cualquiera de los formatos:
   - **Inferior:** franja debajo de la foto.
   - **Marco:** borde alrededor, más ancho abajo.
   - **Desenfoque:** la misma foto desenfocada de fondo y la foto al centro con el texto debajo.
+  - **Tarjeta:** la foto con marco, como tarjeta centrada sobre su propio fondo desenfocado.
 - El nombre del modelo se puede editar a mano. Samsung guarda en la foto un código (`SM-S938B`), no el nombre comercial; la app lo traduce con una tabla en `lib/brands.dart`, y si un modelo no está ahí, lo escribes tú.
 
 **Ajustes de edición**
@@ -37,7 +39,7 @@ Exposición, Contraste, Luces, Sombras, Blancos, Negros, Saturación, Intensidad
 | `lib/intro.dart` | Animación de apertura |
 | `lib/photo_info.dart` | Lectura del EXIF y nombres que se muestran |
 | `lib/brands.dart` | Marcas, tabla de modelos Samsung y fuentes opcionales |
-| `lib/renderer.dart` | Dibujo de los tres estilos de marca |
+| `lib/renderer.dart` | Dibujo de los cuatro estilos de marca |
 | `lib/adjust.dart` | Lista de ajustes y aplicación del shader |
 | `shaders/adjust.frag` | Shader GLSL de los ajustes |
 | `assets/fonts/` | Fuentes de marca opcionales (ver `LEEME.txt`) |
@@ -45,7 +47,7 @@ Exposición, Contraste, Luces, Sombras, Blancos, Negros, Saturación, Intensidad
 
 ## Fuentes de marca (opcional)
 
-En el formato `Modelo | MARCA`, la marca se dibuja por defecto con la fuente del sistema, en negritas y espaciada. Si tienes licencia de la fuente de una marca, colócala en `assets/fonts/` con el nombre de la marca en minúsculas (`samsung.ttf`, `apple.otf`…) y la app la usará automáticamente.
+En los formatos `Modelo | MARCA` y `MARCA | Modelo`, la marca se dibuja por defecto con la fuente del sistema, en negritas y espaciada. Si tienes licencia de la fuente de una marca, colócala en `assets/fonts/` con el nombre de la marca en minúsculas (`samsung.ttf`, `apple.otf`…) y la app la usará automáticamente.
 
 ## Requisitos
 
