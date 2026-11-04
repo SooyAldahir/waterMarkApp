@@ -1,0 +1,7 @@
+Fuentes opcionales de marca para el formato "Modelo | MARCA".
+
+Coloca aquí el archivo con el nombre de la marca en minúsculas:
+  samsung.ttf, apple.otf, google.ttf, xiaomi.ttf, motorola.ttf...
+
+Si no hay archivo, la marca se dibuja con la fuente del sistema
+en negritas y espaciada. Usa solo fuentes que tengas licencia de usar.
