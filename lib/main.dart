@@ -81,6 +81,10 @@ class _EditorPageState extends State<EditorPage> {
   MarkStyle _style = MarkStyle.bottom;
   MarkColor _color = MarkColor.white;
   MarkText _text = MarkText.shotOn;
+  // Cada parte de la marca se activa por separado; sin ninguna queda solo
+  // el marco.
+  bool _showModel = true;
+  bool _showSettings = true;
   bool _busy = false;
 
   int _tab = 0; // 0: marca, 1: ajustes
@@ -119,6 +123,8 @@ class _EditorPageState extends State<EditorPage> {
       style: _style,
       color: _color,
       text: _text,
+      showModel: _showModel,
+      showSettings: _showSettings,
     );
     if (!identical(adjusted, photo)) adjusted.dispose();
     return out;
@@ -188,11 +194,19 @@ class _EditorPageState extends State<EditorPage> {
     );
   }
 
-  void _set({MarkStyle? style, MarkColor? color, MarkText? text}) {
+  void _set({
+    MarkStyle? style,
+    MarkColor? color,
+    MarkText? text,
+    bool? showModel,
+    bool? showSettings,
+  }) {
     setState(() {
       _style = style ?? _style;
       _color = color ?? _color;
       _text = text ?? _text;
+      _showModel = showModel ?? _showModel;
+      _showSettings = showSettings ?? _showSettings;
     });
     _refresh();
   }
@@ -272,27 +286,53 @@ class _EditorPageState extends State<EditorPage> {
   List<Widget> _markPanel() => [
     _scrollRow(
       [
+        _Toggle('Modelo', _showModel, () => _set(showModel: !_showModel)),
+        _Toggle(
+          'Parámetros',
+          _showSettings,
+          () => _set(showSettings: !_showSettings),
+        ),
+        const Padding(
+          padding: EdgeInsets.only(right: 18),
+          child: VerticalDivider(
+            width: 1,
+            indent: 12,
+            endIndent: 12,
+            color: Colors.white24,
+          ),
+        ),
+        // El formato del texto solo aplica cuando se muestra el modelo.
         for (final e in _textLabels.entries)
-          _Option(e.value, _text == e.key, () => _set(text: e.key)),
+          _Disabled(
+            !_showModel,
+            _Option(e.value, _text == e.key, () => _set(text: e.key)),
+          ),
       ],
-      GestureDetector(
-        onTap: _busy ? null : _editModel,
-        behavior: HitTestBehavior.opaque,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 130),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  _info.modelName,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13, color: Colors.white38),
+      _Disabled(
+        !_showModel,
+        GestureDetector(
+          onTap: _busy ? null : _editModel,
+          behavior: HitTestBehavior.opaque,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 130),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    _info.modelName,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 13, color: Colors.white38),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              const Icon(Icons.edit_outlined, size: 14, color: Colors.white38),
-            ],
+                const SizedBox(width: 6),
+                const Icon(
+                  Icons.edit_outlined,
+                  size: 14,
+                  color: Colors.white38,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -530,6 +570,58 @@ class _Option extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Interruptor de una parte de la marca (modelo, parámetros).
+class _Toggle extends StatelessWidget {
+  final String label;
+  final bool on;
+  final VoidCallback onTap;
+  const _Toggle(this.label, this.on, this.onTap);
+
+  @override
+  Widget build(BuildContext context) {
+    final color = on ? Colors.white : Colors.white38;
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.only(right: 18, top: 8, bottom: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              on ? Icons.check_circle : Icons.circle_outlined,
+              size: 15,
+              color: color,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 14,
+                color: color,
+                fontWeight: on ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Atenúa y bloquea un control que no aplica en la configuración actual.
+class _Disabled extends StatelessWidget {
+  final bool disabled;
+  final Widget child;
+  const _Disabled(this.disabled, this.child);
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    ignoring: disabled,
+    child: Opacity(opacity: disabled ? 0.35 : 1, child: child),
+  );
 }
 
 class _Swatch extends StatelessWidget {

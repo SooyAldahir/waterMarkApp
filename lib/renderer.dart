@@ -50,11 +50,16 @@ Future<ui.Image> renderMark({
   required MarkStyle style,
   required MarkColor color,
   required MarkText text,
+  bool showModel = true,
+  bool showSettings = true,
 }) async {
   final p = _Palette.of(color);
   final w = photo.width.toDouble();
   final h = photo.height.toDouble();
   final short = math.min(w, h);
+  final settings = showSettings ? info.settings : '';
+  // Sin modelo ni parámetros solo queda el marco (sin zona de texto).
+  final hasText = showModel || settings.isNotEmpty;
   final barH = short * 0.13;
 
   final recorder = ui.PictureRecorder();
@@ -65,31 +70,40 @@ Future<ui.Image> renderMark({
 
   switch (style) {
     case MarkStyle.bottom:
-      out = Size(w, h + barH);
+      out = Size(w, h + (hasText ? barH : 0));
       canvas.drawRect(Offset.zero & out, Paint()..color = p.bg);
       canvas.drawImage(photo, Offset.zero, hq);
-      _drawBar(
-        canvas,
-        Rect.fromLTWH(0, h, w, barH),
-        info,
-        p,
-        text,
-        short * 0.05,
-      );
+      if (hasText) {
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(0, h, w, barH),
+          info,
+          p,
+          text,
+          short * 0.05,
+          showModel,
+          settings,
+        );
+      }
 
     case MarkStyle.frame:
       final b = short * 0.04;
-      out = Size(w + b * 2, h + b + barH);
+      // Sin texto, el borde inferior es igual a los demás.
+      out = Size(w + b * 2, h + b + (hasText ? barH : b));
       canvas.drawRect(Offset.zero & out, Paint()..color = p.bg);
       canvas.drawImage(photo, Offset(b, b), hq);
-      _drawBar(
-        canvas,
-        Rect.fromLTWH(0, b + h, out.width, barH),
-        info,
-        p,
-        text,
-        b,
-      );
+      if (hasText) {
+        _drawBar(
+          canvas,
+          Rect.fromLTWH(0, b + h, out.width, barH),
+          info,
+          p,
+          text,
+          b,
+          showModel,
+          settings,
+        );
+      }
 
     case MarkStyle.blur:
       out = Size(w, h);
@@ -97,7 +111,7 @@ Future<ui.Image> renderMark({
 
       // Foto centrada con texto debajo.
       final pad = short * 0.05;
-      final textH = short * 0.17;
+      final textH = hasText ? short * 0.17 : 0.0;
       final scale = math.min((w - pad * 2) / w, (h - pad * 2 - textH) / h);
       final pw = w * scale, ph = h * scale;
       final top = (h - ph - textH) / 2;
@@ -108,14 +122,18 @@ Future<ui.Image> renderMark({
       canvas.clipRRect(rr);
       canvas.drawImageRect(photo, src, dst, hq);
       canvas.restore();
-      _drawCentered(
-        canvas,
-        Rect.fromLTWH(0, dst.bottom, w, textH),
-        info,
-        p,
-        text,
-        short,
-      );
+      if (hasText) {
+        _drawCentered(
+          canvas,
+          Rect.fromLTWH(0, dst.bottom, w, textH),
+          info,
+          p,
+          text,
+          short,
+          showModel,
+          settings,
+        );
+      }
 
     case MarkStyle.card:
       out = Size(w, h);
@@ -123,8 +141,8 @@ Future<ui.Image> renderMark({
 
       // Tarjeta: borde fino y zona inferior para el texto, a escala.
       final b = short * 0.03;
-      final barH = short * 0.13;
-      final cw = w + b * 2, ch = h + b + barH;
+      final cardBarH = hasText ? short * 0.13 : b;
+      final cw = w + b * 2, ch = h + b + cardBarH;
       final pad = short * 0.08;
       final s = math.min((w - pad * 2) / cw, (h - pad * 2) / ch);
       final card = Rect.fromCenter(
@@ -142,14 +160,18 @@ Future<ui.Image> renderMark({
         h * s,
       );
       canvas.drawImageRect(photo, src, dst, hq);
-      _drawCentered(
-        canvas,
-        Rect.fromLTRB(card.left, dst.bottom, card.right, card.bottom),
-        info,
-        p,
-        text,
-        short * s * 0.7,
-      );
+      if (hasText) {
+        _drawCentered(
+          canvas,
+          Rect.fromLTRB(card.left, dst.bottom, card.right, card.bottom),
+          info,
+          p,
+          text,
+          short * s * 0.7,
+          showModel,
+          settings,
+        );
+      }
   }
 
   final picture = recorder.endRecording();
@@ -218,14 +240,22 @@ void _drawBar(
   _Palette p,
   MarkText text,
   double hPad,
+  bool showModel,
+  String settings,
 ) {
   final big = r.height * 0.19;
   final gap = r.height * 0.06;
   final inner = r.width - hPad * 2;
 
   final rLines = [
-    if (info.settings.isNotEmpty)
-      _text(info.settings, big * 0.8, p.primary, FontWeight.w500, inner * 0.45),
+    if (settings.isNotEmpty)
+      _text(
+        settings,
+        big * 0.8,
+        p.primary,
+        FontWeight.w500,
+        showModel ? inner * 0.45 : inner,
+      ),
   ];
   final rightW = rLines.fold<double>(0, (m, t) => math.max(m, t.width));
   final rightH =
@@ -237,6 +267,7 @@ void _drawBar(
     y += t.height + gap;
   }
 
+  if (!showModel) return;
   final leftW = inner - rightW - (rightW > 0 ? hPad : 0);
   final title = _title(info, text, big, p, leftW);
   title.paint(
@@ -253,12 +284,14 @@ void _drawCentered(
   _Palette p,
   MarkText text,
   double unit,
+  bool showModel,
+  String settings,
 ) {
   final maxW = r.width * 0.9;
   final lines = [
-    _title(info, text, unit * 0.03, p, maxW),
-    if (info.settings.isNotEmpty)
-      _text(info.settings, unit * 0.021, p.primary, FontWeight.w400, maxW),
+    if (showModel) _title(info, text, unit * 0.03, p, maxW),
+    if (settings.isNotEmpty)
+      _text(settings, unit * 0.021, p.primary, FontWeight.w400, maxW),
   ];
   final gap = unit * 0.008;
   final total =
